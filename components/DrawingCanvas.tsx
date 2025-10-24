@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect, useRef, useState } from 'react';
 
@@ -15,6 +14,22 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
   const [size,setSize]=useState(6);
   const [history,setHistory]=useState<ImageData[]>([]);
 
+  useEffect(()=>{
+    const c = cRef.current!;
+    c.width = 480;
+    c.height = 320;
+    const ctx = c.getContext('2d')!;
+    ctxRef.current = ctx;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = color; ctx.lineWidth = size;
+    ctx.fillStyle = '#fffaf3'; ctx.fillRect(0,0,c.width,c.height);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // keep brush in sync
+  useEffect(()=>{ if(ctxRef.current) ctxRef.current.strokeStyle = color; }, [color]);
+  useEffect(()=>{ if(ctxRef.current) ctxRef.current.lineWidth = size; }, [size]);
+
   // reset on resetKey change
   useEffect(()=>{
     if (!cRef.current || !ctxRef.current) return;
@@ -22,56 +37,36 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
     ctx.fillStyle='#fffaf3'; ctx.fillRect(0,0,c.width,c.height);
     ctx.strokeStyle=color; ctx.lineWidth=size;
     setHistory([]);
-  }, [resetKey]);
+  }, [resetKey, color, size]);
 
-  useEffect(()=>{
-    const c=cRef.current!;
-    c.width=480; c.height=320;
-    const ctx=c.getContext('2d')!;
-    ctxRef.current=ctx;
-    reset();
-  },[]);
+  function getPos(e: React.PointerEvent<HTMLCanvasElement>){
+    const c=cRef.current!; const r=c.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
 
-  useEffect(()=>{
-    if(!ctxRef.current) return;
-    const ctx=ctxRef.current;
-    ctx.lineWidth=size;
-    ctx.strokeStyle=color;
-    ctx.lineCap='round'; ctx.lineJoin='round';
-  },[size,color]);
-
-  const getPos=(e:any)=>{
-    const rect=cRef.current!.getBoundingClientRect();
-    const X=e.touches?e.touches[0].clientX:e.clientX;
-    const Y=e.touches?e.touches[0].clientY:e.clientY;
-    return {x:X-rect.left,y:Y-rect.top};
-  };
-
-  
-  
-  function start(e:any){
-    e.preventDefault?.();
+  function start(e: React.PointerEvent<HTMLCanvasElement>){
+    e.preventDefault();
+    (e.target as HTMLCanvasElement).setPointerCapture?.(e.pointerId);
     setDrawing(true);
     const {x,y}=getPos(e);
     const ctx=ctxRef.current!;
     ctx.beginPath(); ctx.moveTo(x,y);
-    try{ setHistory(h=>[ctx.getImageData(0,0,cRef.current!.width,cRef.current!.height),...h].slice(0,40)); }catch{}
+    const c=cRef.current!;
+    try{ setHistory(h=>[ctx.getImageData(0,0,c.width,c.height), ...h].slice(0,40)); }catch{}
   }
-  }
-  }
-  
-  
-  function move(e:any){
+
+  function move(e: React.PointerEvent<HTMLCanvasElement>){
     if(!drawing) return;
-    e.preventDefault?.();
-    const {x,y}=getPos(e); const ctx=ctxRef.current!; ctx.lineTo(x,y); ctx.stroke();
+    e.preventDefault();
+    const {x,y}=getPos(e);
+    const ctx=ctxRef.current!; ctx.lineTo(x,y); ctx.stroke();
   }
-  
-  
-  function end(){
+
+  function end(e?: React.PointerEvent<HTMLCanvasElement>){
     if(!drawing) return;
     setDrawing(false);
     onExport(cRef.current!.toDataURL('image/png'));
+    (e?.target as HTMLCanvasElement|undefined)?.releasePointerCapture?.(e!.pointerId);
   }
 
   function reset(){
@@ -81,33 +76,41 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
   }
   function undo(){
     const ctx=ctxRef.current!, c=cRef.current!;
-    setHistory(h=>{ if(!h.length) return h; const [last,...rest]=h; ctx.putImageData(last,0,0); return rest; });
+    setHistory(h=>{
+      if(!h.length) return h;
+      const [last, ...rest] = h;
+      ctx.putImageData(last,0,0);
+      return rest;
+    });
   }
-  function exportPNG(){ onExport(cRef.current!.toDataURL('image/png')); }
 
   return (
     <div>
       <canvas
         className="canvasFrame"
         ref={cRef}
-        onPointerDown={start} onPointerMove={move} onPointerUp={end} onMouseLeave={end}
-        onPointerDown={start} onPointerMove={move} onPointerUp={end}
-        style={{display:'block'}}
-      / onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
-      <div className="toolbar">
-        <div style={{display:'flex',gap:6}}>
+        onPointerDown={start}
+        onPointerMove={move}
+        onPointerUp={end}
+        onPointerCancel={end}
+        style={{ width:'100%', maxWidth:520, display:'block', margin:'0 auto', touchAction:'none' }}
+      />
+      <div className="toolbar" style={{justifyContent:'center'}}>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {COLORS.map(c=>(
-            <button key={c} className="swatch" onClick={()=>setColor(c)} style={{background:c, outline: c===color?'2px solid #3336':'none'}} aria-label={'color '+c}/>
+            <button key={c} onClick={()=>setColor(c)} aria-label={`color ${c}`} className="chip" style={{borderColor:'#e6d5c4'}}>
+              <span style={{display:'inline-block', width:18, height:18, borderRadius:999, background:c, border:'1px solid #d9c4ae'}}/>
+            </button>
           ))}
         </div>
         <div style={{display:'flex',gap:6}}>
           {SIZES.map(s=>(
-            <button key={s} onClick={()=>setSize(s)} style={{border:'1px solid #e6d5c4',borderRadius:10,background:'#fff',padding:'.25rem .6rem'}}>{s}px</button>
+            <button key={s} onClick={()=>setSize(s)} className="chip">{s}px</button>
           ))}
         </div>
-        <button onClick={undo} style={{border:'1px solid #e6d5c4',borderRadius:10,background:'#fff',padding:'.4rem .7rem'}}>Undo</button>
-        <button onClick={reset} style={{border:'1px solid #e6d5c4',borderRadius:10,background:'#fff',padding:'.4rem .7rem'}}>Clear</button>
-        
+        <button onClick={undo} className="chip">Undo</button>
+        <button onClick={reset} className="chip">Clear</button>
+        {/* No "Use this doodle" button; parent handles submit */}
       </div>
     </div>
   );
