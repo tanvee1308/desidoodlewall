@@ -41,8 +41,8 @@ export default function Page(){
   useEffect(()=>{ load(1); },[]);
 
   async function handleSubmit(){
-    if(!img){ setError('Please draw your word first.'); return; }
-    if(!meaning.trim()){ setError('Please add a meaning.'); return; }
+    if(!img){ setError('Please draw your word/phrase first.'); return; }
+    if(!meaning.trim()){ setError('Please add a meaning/translation.'); return; }
     setError(null); setSubmitting(true);
     try{
       const res = await fetch('/api/submit',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ word, meaning, language, dataUrl: img }) });
@@ -58,7 +58,7 @@ export default function Page(){
       doodleUrl: entry.imgUrl, language: entry.language, meaning: entry.meaning, word: entry.word
     });
     if (navigator.share && navigator.canShare?.({ files: [new File([blob], fileName)] })) {
-      await navigator.share({ title: 'MY DOODLE WALL SUBMISSION', files: [new File([blob], fileName, { type: 'image/png' })] });
+      await navigator.share({ title: 'My word/phrase submission', files: [new File([blob], fileName, { type: 'image/png' })] });
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -78,13 +78,13 @@ export default function Page(){
       </div>
 
       <div className="intro">
-        <p>✏️ Add a word you’ve learnt or love from your mother tongue — sweet, silly or desi!</p>
+        <p>✏️ Add your word/phrase you’ve learnt or love from your mother tongue — sweet, silly or desi!</p>
         <p>💬 Every word teaches someone something new.</p>
         <p>💛 One word from you, one word learned by someone else.</p>
         <p>🚫 No galis & rude words allowed please!!</p>
       </div>
 
-      {/* updated promotional line */}
+      {/* promo line */}
       <div className="note" style={{ textAlign: 'center', marginTop: 8 }}>
         💛 We create colourful first-words books in many of these languages — more on the way!{' '}
         <a href="https://www.thedesidictionary.com" target="_blank" rel="noopener noreferrer">
@@ -98,14 +98,24 @@ export default function Page(){
         <select className="select" value={language} onChange={(e)=>setLanguage(e.target.value)}>
           {LANGS.map(l=> <option key={l} value={l}>{l}</option>)}
         </select>
-        <input className="input" value={word} onChange={e=>setWord(e.target.value)} placeholder="Word (optional)" />
-        <input className="input" value={meaning} onChange={e=>setMeaning(e.target.value)} placeholder="Meaning" />
+        <input
+          className="input"
+          value={word}
+          onChange={e=>setWord(e.target.value)}
+          placeholder="Your word/phrase (optional)"
+        />
+        <input
+          className="input"
+          value={meaning}
+          onChange={e=>setMeaning(e.target.value)}
+          placeholder="Meaning / translation (required)"
+        />
       </div>
 
       {error && <p style={{color:'#b00020', textAlign:'center'}}>{error}</p>}
       <div style={{textAlign:'center'}}>
         <button className="addBtn" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? 'ADDING…' : '💛 ADD TO WALL'}
+          {submitting ? 'ADDING…' : '💛 ADD YOUR WORD/PHRASE'}
         </button>
         <div className="note" style={{marginTop:6}}>Every word teaches someone something new.</div>
       </div>
