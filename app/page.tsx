@@ -20,11 +20,11 @@ export default function Page(){
   const [pageNum,setPageNum]=useState(1);
   const [total,setTotal]=useState(0);
   const [pageSize] = useState(30);
-  const [resetKey, setResetKey] = useState(0);
 
   const [submitting,setSubmitting]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
+  const [resetKey, setResetKey] = useState(0); // for clearing the canvas after submit
 
   async function load(p:number = pageNum){
     setLoading(true);
@@ -48,7 +48,7 @@ export default function Page(){
       const res = await fetch('/api/submit',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ word, meaning, language, dataUrl: img }) });
       const out = await res.json();
       if(!res.ok) throw new Error(out.error||'Failed to save');
-      setWord(''); setMeaning(''); setLanguage('Hindi'); setImg(null); setResetKey(k=>k+1);
+      setWord(''); setMeaning(''); setLanguage('Hindi'); setImg(null); setResetKey(k=>k+1); // clear the slate
       await load(1); setPageNum(1);
     }catch(e:any){ setError(e.message||'Error'); }finally{ setSubmitting(false); }
   }
