@@ -24,7 +24,7 @@ export default function Page(){
   const [submitting,setSubmitting]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
-  const [resetKey, setResetKey] = useState(0); // for clearing the canvas after submit
+  const [resetKey, setResetKey] = useState(0); // clear canvas after submit
 
   async function load(p:number = pageNum){
     setLoading(true);
@@ -48,7 +48,7 @@ export default function Page(){
       const res = await fetch('/api/submit',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ word, meaning, language, dataUrl: img }) });
       const out = await res.json();
       if(!res.ok) throw new Error(out.error||'Failed to save');
-      setWord(''); setMeaning(''); setLanguage('Hindi'); setImg(null); setResetKey(k=>k+1); // clear the slate
+      setWord(''); setMeaning(''); setLanguage('Hindi'); setImg(null); setResetKey(k=>k+1); // clear slate now
       await load(1); setPageNum(1);
     }catch(e:any){ setError(e.message||'Error'); }finally{ setSubmitting(false); }
   }
@@ -82,6 +82,12 @@ export default function Page(){
         <p>💬 Every word teaches someone something new.</p>
         <p>💛 One word from you, one word learned by someone else.</p>
         <p>🚫 No galis & rude words allowed please!!</p>
+      </div>
+
+      {/* Promo line you asked for */}
+      <div className="note" style={{textAlign:'center', marginTop:8}}>
+        we sell first-words books across some of these languages — more on the way.{' '}
+        <a href="https://www.thedesidictionary.com" target="_blank" rel="noopener noreferrer">www.thedesidictionary.com</a>
       </div>
 
       <DrawingCanvas onExport={(d)=>setImg(d)} resetKey={resetKey} />
