@@ -84,10 +84,12 @@ export default function Page(){
         <p>🚫 No galis & rude words allowed please!!</p>
       </div>
 
-      {/* Promo line you asked for */}
-      <div className="note" style={{textAlign:'center', marginTop:8}}>
-        we sell first-words books across some of these languages — more on the way.{' '}
-        <a href="https://www.thedesidictionary.com" target="_blank" rel="noopener noreferrer">www.thedesidictionary.com</a>
+      {/* updated promotional line */}
+      <div className="note" style={{ textAlign: 'center', marginTop: 8 }}>
+        💛 We create colourful first-words books in many of these languages — more on the way!{' '}
+        <a href="https://www.thedesidictionary.com" target="_blank" rel="noopener noreferrer">
+          www.thedesidictionary.com
+        </a>
       </div>
 
       <DrawingCanvas onExport={(d)=>setImg(d)} resetKey={resetKey} />
