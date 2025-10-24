@@ -14,64 +14,52 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
   const [size,setSize]=useState(6);
   const [history,setHistory]=useState<ImageData[]>([]);
 
-  // Set up canvas at correct pixel density & size
+  // Mount: set up canvas at correct pixel density (no clearing on colour/size changes)
   useEffect(()=>{
     const c = cRef.current!;
     const ctx = c.getContext('2d')!;
     ctxRef.current = ctx;
 
-    const init = () => {
-      const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
-      // Use layout width, and 3:2 aspect ratio
-      const rect = c.getBoundingClientRect();
-      const cssW = rect.width || 480;
-      const cssH = cssW * (2/3); // 3:2 aspect ratio => height = width * 2/3
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    // base CSS size: fluid width, 3:2 aspect
+    const cssW = c.getBoundingClientRect().width || 480;
+    const cssH = cssW * (2/3);
 
-      // Set backing size in device pixels
-      c.width  = Math.round(cssW * dpr);
-      c.height = Math.round(cssH * dpr);
+    // backing store in device pixels
+    c.width  = Math.round(cssW * dpr);
+    c.height = Math.round(cssH * dpr);
+    c.style.width  = `${cssW}px`;
+    c.style.height = `${cssH}px`;
 
-      // Set CSS size to match layout (fluid)
-      c.style.width  = `${cssW}px`;
-      c.style.height = `${cssH}px`;
+    // draw in CSS space
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(dpr, dpr);
 
-      // Normalize drawing to device pixels
-      ctx.setTransform(1,0,0,1,0,0); // reset any existing transforms
-      ctx.scale(dpr, dpr);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = color;
+    ctx.lineWidth  = size;
 
-      // Base styles
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
+    // initial background
+    ctx.fillStyle = '#fffaf3';
+    ctx.fillRect(0,0,cssW,cssH);
 
-      // Paint background (in CSS pixels because we scaled the context by dpr)
-      ctx.fillStyle = '#fffaf3';
-      ctx.fillRect(0,0,cssW,cssH);
-    };
-
-    init();
-    // Resize listener (optional: clears content on resize)
-    const onResize = () => init();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // mount only
 
-  // keep brush in sync (no clearing)
+  // keep brush in sync — DOES NOT CLEAR
   useEffect(()=>{ if(ctxRef.current) ctxRef.current.strokeStyle = color; }, [color]);
-  useEffect(()=>{ if(ctxRef.current) ctxRef.current.lineWidth  = size; }, [size]);
+  useEffect(()=>{ if(ctxRef.current) ctxRef.current.lineWidth  = size;  }, [size]);
 
-  // Only clear when resetKey changes (after submit)
+  // ✅ only clear when resetKey changes (after successful submit)
   useEffect(()=>{
-    if (!cRef.current || !ctxRef.current) return;
-    const c=cRef.current; const ctx=ctxRef.current;
-    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+    if (!resetKey) return;
+    const c=cRef.current!, ctx=ctxRef.current!;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     const rect = c.getBoundingClientRect();
     const cssW = rect.width || 480;
     const cssH = cssW * (2/3);
 
-    // Make sure backing store is still correct
     c.width  = Math.round(cssW * dpr);
     c.height = Math.round(cssH * dpr);
     ctx.setTransform(1,0,0,1,0,0);
@@ -80,15 +68,12 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
     ctx.fillStyle='#fffaf3'; ctx.fillRect(0,0,cssW,cssH);
     ctx.strokeStyle=color; ctx.lineWidth=size;
     setHistory([]);
-  }, [resetKey, color, size]);
+  }, [resetKey]); // <-- ONLY resetKey
 
-  // Precise pointer -> canvas coords (accounts for CSS scale vs backing store)
+  // pointer -> canvas coords in CSS pixels
   function getPos(e: React.PointerEvent<HTMLCanvasElement>){
     const c=cRef.current!; const rect=c.getBoundingClientRect();
-    // we draw in CSS pixel space because we scaled the context by dpr
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    return { x, y };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
   function start(e: React.PointerEvent<HTMLCanvasElement>){
@@ -99,11 +84,10 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
     const ctx=ctxRef.current!;
     ctx.beginPath(); ctx.moveTo(x,y);
 
-    // Save snapshot for undo in device pixels:
+    // save device-pixel snapshot for undo
     try{
-      const c=cRef.current!;
-      const snap = ctx.getImageData(0,0,Math.floor(c.width),Math.floor(c.height));
-      setHistory(h=>[snap, ...h].slice(0,40));
+      const c=cRef.current!, raw=ctx.getImageData(0,0,c.width,c.height);
+      setHistory(h=>[raw, ...h].slice(0,40));
     }catch{}
   }
 
@@ -111,21 +95,20 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
     if(!drawing) return;
     e.preventDefault();
     const {x,y}=getPos(e);
-    const ctx=ctxRef.current!;
-    ctx.lineTo(x,y); ctx.stroke();
+    ctxRef.current!.lineTo(x,y);
+    ctxRef.current!.stroke();
   }
 
   function end(e?: React.PointerEvent<HTMLCanvasElement>){
     if(!drawing) return;
     setDrawing(false);
-    // Export full-resolution PNG (backing store)
     onExport(cRef.current!.toDataURL('image/png'));
     (e?.target as HTMLCanvasElement|undefined)?.releasePointerCapture?.(e!.pointerId);
   }
 
   function reset(){
-    const c=cRef.current!; const ctx=ctxRef.current!;
-    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+    const c=cRef.current!, ctx=ctxRef.current!;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     const rect = c.getBoundingClientRect();
     const cssW = rect.width || 480;
     const cssH = cssW * (2/3);
@@ -140,11 +123,10 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
     setHistory(h=>{
       if(!h.length) return h;
       const [last, ...rest] = h;
-      // Put the saved device-pixel imageData back
+      // restore device-pixel snapshot
       ctx.setTransform(1,0,0,1,0,0);
       ctx.putImageData(last,0,0);
-      // Restore transform for subsequent drawing
-      const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
       ctx.scale(dpr, dpr);
       ctx.strokeStyle=color; ctx.lineWidth=size;
       return rest;
@@ -160,7 +142,6 @@ export default function DrawingCanvas({ onExport, resetKey }: Props) {
         onPointerMove={move}
         onPointerUp={end}
         onPointerCancel={end}
-        // width/height are controlled in effect; style controls CSS size and aspect
         style={{ width:'100%', maxWidth:520, aspectRatio:'3 / 2', display:'block', margin:'0 auto', touchAction:'none' }}
       />
       <div className="toolbar" style={{justifyContent:'center'}}>
