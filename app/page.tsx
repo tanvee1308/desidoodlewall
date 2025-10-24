@@ -1,4 +1,4 @@
-'use client';
+     'use client';
 import { useEffect, useState } from 'react';
 import DrawingCanvas from '../components/DrawingCanvas';
 import { makeShareImage } from '../lib/makeShareImage';
